@@ -142,6 +142,13 @@ typedef gcry_err_code_t (*gcry_pk_verify_t) (int algo,
 /* Type for the pk_get_nbits function.  */
 typedef unsigned (*gcry_pk_get_nbits_t) (int algo, gcry_mpi_t *pkey);
 
+
+/* Type for the pk_blind function.  */
+typedef gcry_err_code_t (*gcry_pk_blind_t) (int algo,
+					      gcry_mpi_t *result,
+					      gcry_mpi_t *data,
+					      gcry_mpi_t *skey);
+
 /* Module specification structure for message digests.  */
 typedef struct gcry_pk_spec
 {
@@ -160,6 +167,7 @@ typedef struct gcry_pk_spec
   gcry_pk_sign_t sign;
   gcry_pk_verify_t verify;
   gcry_pk_get_nbits_t get_nbits;
+  gcry_pk_blind_t blind;
 } gcry_pk_spec_t;
 
 
