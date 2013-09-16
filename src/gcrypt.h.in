@@ -933,6 +933,7 @@ size_t gcry_cipher_get_algo_keylen (int algo);
 /* Retrieve the block length in bytes used with algorithm A. */
 size_t gcry_cipher_get_algo_blklen (int algo);
 
+
 /* Return 0 if the algorithm A is available for use. */
 #define gcry_cipher_test_algo(a) \
             gcry_cipher_algo_info( (a), GCRYCTL_TEST_ALGO, NULL, NULL )
@@ -977,6 +978,11 @@ gcry_error_t gcry_pk_encrypt (gcry_sexp_t *result,
    a newly created S-expression at RESULT. */
 gcry_error_t gcry_pk_decrypt (gcry_sexp_t *result,
                               gcry_sexp_t data, gcry_sexp_t skey);
+
+/* Blind the DATA using the public key PKEY and store the result as
+   a newly created S-expression at RESULT. */
+gcry_error_t gcry_pk_blind (gcry_sexp_t *result,
+                              gcry_sexp_t data, gcry_sexp_t pkey);
 
 /* Sign the DATA using the private key SKEY and store the result as
    a newly created S-expression at RESULT. */

@@ -909,6 +909,58 @@ rsa_encrypt (int algo, gcry_mpi_t *resarr, gcry_mpi_t data,
   return GPG_ERR_NO_ERROR;
 }
 
+static gcry_err_code_t
+rsa_blind_export (int algo, gcry_mpi_t *result, gcry_mpi_t *data,
+             gcry_mpi_t *skey)
+{
+  RSA_secret_key sk;
+  gcry_mpi_t r = MPI_NULL;	/* Random number needed for blinding.  */
+  gcry_mpi_t ri = MPI_NULL;	/* Modular multiplicative inverse of
+				   r.  */
+  gcry_mpi_t y;			/* Result.  */
+
+  (void)algo;
+
+  /* Extract private key.  */
+  sk.n = skey[0];
+  sk.e = skey[1];
+  sk.d = skey[2];
+  
+  y = gcry_mpi_snew (gcry_mpi_get_nbits (sk.n));
+
+  /* Initialize blinding.  */
+  
+  /* First, we need a random number r between 0 and n - 1, which
+     is relatively prime to n (i.e. it is neither p nor q).  The
+     random number needs to be only unpredictable, thus we employ
+     the gcry_create_nonce function by using GCRY_WEAK_RANDOM with
+     gcry_mpi_randomize.  */
+
+  r = gcry_mpi_snew (gcry_mpi_get_nbits (sk.n));
+  ri = gcry_mpi_snew (gcry_mpi_get_nbits (sk.n));
+  
+  gcry_mpi_randomize (r, gcry_mpi_get_nbits (sk.n), GCRY_WEAK_RANDOM);
+  gcry_mpi_mod (r, r, sk.n);
+  
+  /* Calculate inverse of r.  It practically impossible that the
+     following test fails, thus we do not add code to release
+     allocated resources.  */
+  
+  if (!gcry_mpi_invm (ri, r, sk.n))
+    return GPG_ERR_INTERNAL;
+
+  
+  y = rsa_blind (data[0], r, sk.e, sk.n);
+
+  gcry_mpi_release (r);
+  gcry_mpi_release (ri);
+
+  /* Copy out result.  */
+  *result = y;
+
+  return GPG_ERR_NO_ERROR;
+}
+
 
 static gcry_err_code_t
 rsa_decrypt (int algo, gcry_mpi_t *result, gcry_mpi_t *data,
@@ -1390,6 +1442,7 @@ gcry_pk_spec_t _gcry_pubkey_spec_rsa =
     rsa_sign,
     rsa_verify,
     rsa_get_nbits,
+    rsa_blind_export,
   };
 pk_extra_spec_t _gcry_pubkey_extraspec_rsa =
   {

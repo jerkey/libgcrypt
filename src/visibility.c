@@ -737,6 +737,7 @@ gcry_cipher_decrypt (gcry_cipher_hd_t h,
   return _gcry_cipher_decrypt (h, out, outsize, in, inlen);
 }
 
+
 size_t
 gcry_cipher_get_algo_keylen (int algo)
 {
@@ -770,6 +771,18 @@ gcry_pk_decrypt (gcry_sexp_t *result, gcry_sexp_t data, gcry_sexp_t skey)
     }
   return _gcry_pk_decrypt (result, data, skey);
 }
+
+gcry_error_t
+gcry_pk_blind (gcry_sexp_t *result, gcry_sexp_t data, gcry_sexp_t pkey)
+{
+  if (!fips_is_operational ())
+    {
+      *result = NULL;
+      return gpg_error (fips_not_operational ());
+    }
+  return _gcry_pk_blind (result, data, pkey);
+}
+
 
 gcry_error_t
 gcry_pk_sign (gcry_sexp_t *result, gcry_sexp_t data, gcry_sexp_t skey)
