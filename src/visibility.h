@@ -95,6 +95,7 @@
 #define gcry_pk_ctl                 _gcry_pk_ctl
 #define gcry_pk_decrypt             _gcry_pk_decrypt
 #define gcry_pk_encrypt             _gcry_pk_encrypt
+#define gcry_pk_blind               _gcry_pk_blind
 #define gcry_pk_genkey              _gcry_pk_genkey
 #define gcry_pk_get_keygrip         _gcry_pk_get_keygrip
 #define gcry_pk_get_curve           _gcry_pk_get_curve
@@ -311,6 +312,7 @@ gcry_err_code_t gcry_md_get (gcry_md_hd_t hd, int algo,
 #undef gcry_pk_ctl
 #undef gcry_pk_decrypt
 #undef gcry_pk_encrypt
+#undef gcry_pk_blind
 #undef gcry_pk_genkey
 #undef gcry_pk_get_keygrip
 #undef gcry_pk_get_curve
@@ -487,6 +489,7 @@ MARK_VISIBLE (gcry_pk_algo_name)
 MARK_VISIBLE (gcry_pk_ctl)
 MARK_VISIBLE (gcry_pk_decrypt)
 MARK_VISIBLE (gcry_pk_encrypt)
+MARK_VISIBLE (gcry_pk_blind)
 MARK_VISIBLE (gcry_pk_genkey)
 MARK_VISIBLE (gcry_pk_get_keygrip)
 MARK_VISIBLE (gcry_pk_get_curve)

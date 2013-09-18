@@ -36,6 +36,8 @@
 static gcry_err_code_t pubkey_decrypt (int algo, gcry_mpi_t *result,
                                        gcry_mpi_t *data, gcry_mpi_t *skey,
                                        int flags);
+static gcry_err_code_t pubkey_blind (int algo, gcry_mpi_t *result,
+                                       gcry_mpi_t *data, gcry_mpi_t *skey);
 static gcry_err_code_t pubkey_sign (int algo, gcry_mpi_t *resarr,
                                     gcry_mpi_t hash, gcry_mpi_t *skey,
                                     struct pk_encoding_ctx *ctx);
@@ -689,6 +691,57 @@ pubkey_decrypt (int algorithm, gcry_mpi_t *result, gcry_mpi_t *data,
     {
       pubkey = (gcry_pk_spec_t *) module->spec;
       rc = pubkey->decrypt (algorithm, result, data, skey, flags);
+      _gcry_module_release (module);
+      goto ready;
+    }
+
+  rc = GPG_ERR_PUBKEY_ALGO;
+
+ ready:
+  ath_mutex_unlock (&pubkeys_registered_lock);
+
+  if (!rc && DBG_CIPHER && !fips_mode ())
+    log_mpidump (" plain:", *result);
+
+  return rc;
+}
+
+
+
+/****************
+ * This is the interface to the public key blinding.
+ * ALGO gives the algorithm to use and this implicitly determines
+ * the size of the arrays.
+ * result is a pointer to a mpi variable which will receive a
+ * newly allocated mpi or NULL in case of an error.
+ */
+static gcry_err_code_t
+pubkey_blind (int algorithm, gcry_mpi_t *result, gcry_mpi_t *data,
+                gcry_mpi_t *skey)
+{
+  gcry_pk_spec_t *pubkey;
+  gcry_module_t module;
+  gcry_err_code_t rc;
+  int i;
+
+  *result = NULL; /* so the caller can always do a mpi_free */
+  if (DBG_CIPHER && !fips_mode ())
+    {
+      log_debug ("pubkey_blind: algo=%d\n", algorithm);
+      for(i = 0; i < pubkey_get_nskey (algorithm); i++)
+	log_mpidump ("  skey:", skey[i]);
+      for(i = 0; i < pubkey_get_nenc (algorithm); i++)
+	log_mpidump ("  data:", data[i]);
+    }
+
+  ath_mutex_lock (&pubkeys_registered_lock);
+  module = _gcry_module_lookup_id (pubkeys_registered, algorithm);
+  if (module)
+    {
+      // TODO check if a blinding function exists
+
+      pubkey = (gcry_pk_spec_t *) module->spec;
+      rc = pubkey->blind (algorithm, result, data, skey);
       _gcry_module_release (module);
       goto ready;
     }
@@ -3192,6 +3245,68 @@ gcry_pk_decrypt (gcry_sexp_t *r_plain, gcry_sexp_t s_data, gcry_sexp_t s_skey)
   return gcry_error (rc);
 }
 
+
+gcry_error_t
+gcry_pk_blind (gcry_sexp_t *r_plain, gcry_sexp_t s_data, gcry_sexp_t s_skey)
+{
+  gcry_mpi_t *skey = NULL, *data = NULL, plain = NULL;
+
+  int modern, flags;
+  struct pk_encoding_ctx ctx;
+  gcry_err_code_t rc;
+  gcry_module_t module_enc = NULL, module_key = NULL;
+
+  *r_plain = NULL;
+
+  REGISTER_DEFAULT_PUBKEYS;
+
+  rc = sexp_to_key (s_skey, 1, NULL, &skey, &module_key);
+  if (rc)
+    goto leave;
+
+  init_encoding_ctx (&ctx, PUBKEY_OP_DECRYPT, gcry_pk_get_nbits (s_skey));
+  rc = sexp_to_enc (s_data, &data, &module_enc, &modern, &flags, &ctx);
+  if (rc)
+    goto leave;
+
+  if (module_key->mod_id != module_enc->mod_id)
+    {
+      rc = GPG_ERR_CONFLICT; /* Key algo does not match data algo. */
+      goto leave;
+    }
+
+  rc = pubkey_blind (module_key->mod_id, &plain, data, skey);
+
+ leave:
+
+  if (skey)
+    {
+      release_mpi_array (skey);
+      gcry_free (skey);
+    }
+
+  mpi_free (plain);
+
+  if (data)
+    {
+      release_mpi_array (data);
+      gcry_free (data);
+    }
+
+  if (module_key || module_enc)
+    {
+      ath_mutex_lock (&pubkeys_registered_lock);
+      if (module_key)
+	_gcry_module_release (module_key);
+      if (module_enc)
+	_gcry_module_release (module_enc);
+      ath_mutex_unlock (&pubkeys_registered_lock);
+    }
+
+  gcry_free (ctx.label);
+
+  return gcry_error (rc);
+}
 
 
 /*
